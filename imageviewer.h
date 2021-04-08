@@ -67,6 +67,7 @@ private:
     void adjustScrollBar(QScrollBar *scrollBar, double factor);
     void setImage(const QImage &newImage);
     bool saveFile(const QString &fileName);
+    bool loadFile(const QString &fileName);
 
    #ifndef QT_NO_PRINTER
        QPrinter printer;

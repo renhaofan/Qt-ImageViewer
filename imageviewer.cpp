@@ -80,6 +80,44 @@ static void initializeImageFileDialog(QFileDialog &dialog, QFileDialog::AcceptMo
         dialog.setDefaultSuffix("jpg");
 }
 
+void ImageViewer::setImage(const QImage &newImage)
+{
+    image = newImage;
+    imageLabel->setPixmap(QPixmap::fromImage(image));
+
+    scaleFactor = 1.0;
+
+    scrollArea->setVisible(true);
+    printAct->setEnabled(true);
+    fitToWindowAct->setEnabled(true);
+    updateActions();
+
+    if (!fitToWindowAct->isChecked())
+        imageLabel->adjustSize();
+}
+
+bool ImageViewer::loadFile(const QString &fileName)
+{
+    QImageReader reader(fileName);
+    reader.setAutoTransform(true);
+    const QImage newImage = reader.read();
+    if (newImage.isNull()) {
+        QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
+                                 tr("Cannot load %1: %2")
+                                 .arg(QDir::toNativeSeparators(fileName), reader.errorString()));
+        return false;
+    }
+
+    setImage(newImage);
+
+    setWindowFilePath(fileName);
+
+    const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
+        .arg(QDir::toNativeSeparators(fileName)).arg(image.width()).arg(image.height()).arg(image.depth());
+    statusBar()->showMessage(message);
+    return true;
+}
+
 void ImageViewer::updateActions()
 {
     saveAsAct->setEnabled(!image.isNull());
@@ -148,7 +186,7 @@ void ImageViewer::dropEvent(QDropEvent *event) {
     if (event->type() != QEvent::Drop) return;
     QList<QUrl> urls = event->mimeData()->urls();
     QString fileName = urls.first().toLocalFile();
-    if (!fileName.isEmpty()) {
+    if (!loadFile(fileName)) {
         image = QImage(fileName);
         if (image.isNull()) {
             QMessageBox::information(this, tr("Image Viewer"),
@@ -164,32 +202,15 @@ void ImageViewer::dropEvent(QDropEvent *event) {
 
         if (!fitToWindowAct->isChecked())
             imageLabel->adjustSize();
-        on_actionFitToWindow_triggered(); // fit to window
     }
 }
 
 void ImageViewer::on_actionOpen_triggered()
 {
-    QString fileName = QFileDialog::getOpenFileName(this,
-                                     tr("Open File"), QDir::currentPath());
-    if (!fileName.isEmpty()) {
-         image = QImage(fileName);
-         if (image.isNull()) {
-             QMessageBox::information(this, tr("Image Viewer"),
-                                      tr("Cannot load %1.").arg(fileName));
-             return;
-         }
-         imageLabel->setPixmap(QPixmap::fromImage(image));
-         scaleFactor = 1.0;
+    QFileDialog dialog(this, tr("Open File"));
+    initializeImageFileDialog(dialog, QFileDialog::AcceptOpen);
 
-         printAct->setEnabled(true);
-         fitToWindowAct->setEnabled(true);
-         updateActions();
-
-         if (!fitToWindowAct->isChecked())
-             imageLabel->adjustSize();
-         on_actionFitToWindow_triggered(); // fit to window
-    }
+    while (dialog.exec() == QDialog::Accepted && !loadFile(dialog.selectedFiles().first())) {}
 }
 
 void ImageViewer::on_actionPrint_triggered()
